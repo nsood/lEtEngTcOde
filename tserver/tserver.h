@@ -44,15 +44,12 @@
 #define END_INFO	1013
 #define DIAG_AUTH	1015
 
-// struct for udhcpd.leases
 struct dhcp_lease_s {
 	unsigned char hostname[16];
 	unsigned char mac[16];
 	unsigned long ip;
 	unsigned long expires;
-#if 1//def CONFIG_JCG_H1PAGE_SUPPORT
 	unsigned char vendor[16];
-#endif
 } dhcp_lease;
 
 struct req_msg{

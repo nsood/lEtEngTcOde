@@ -7,6 +7,7 @@
 #include <string.h>
 #include "include.h"
 #include "tserver.h"
+#include "tq_mach_api.h"
 
 int tq_daemon()
 {
@@ -58,6 +59,12 @@ void sighandler(int sig,siginfo_t *si,void *ctx)
 	{
 		debug_info("SIGSEGV:%d %p\n", sig,ctx);
 	}
+
+	//deal qos accidence
+	nvram_set("QoSEnable", "0");
+	sleep(4);
+	system("jcc_ctrl updatenvram 0");
+	system("jcc_ctrl restartqos &");
 	int i = 0;
 	//close(epfd);
 	for(i = 0; i < 3; i++)

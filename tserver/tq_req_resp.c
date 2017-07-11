@@ -20,15 +20,15 @@ extern struct tq_ctt_s ctt_s;
 ***********************************************************/
 void tq_ser_req_dec_msg(struct request_s *req)
 {
-	uint16_t len = ntohs(req->msg.m_cont_len);
+	int len = ntohs(req->msg.m_cont_len);
 	char *m_con = req->msg.m_cont;
 	struct tq_ctt_s *ct = &ctt_s;
 
 	tq_crypto_aes(&ctt_s,(unsigned char *)m_con,len,DECRYPT);
-	memset(req->msg.m_cont,0,SIZE_BUF_CTT);
+	memset(req->msg.m_cont,'\0',SIZE_BUF_MSG);
 	memcpy(req->msg.m_cont,ct->con,ct->len);
 	req->msg.m_cont_len = htons(ct->len);
-	debug_info("decrypt msg:%s\n",req->msg.m_cont);
+	debug_info("decrypt len : %d msg:%s \tend",ct->len,req->msg.m_cont);
 }
 
 /***********************************************************
@@ -36,18 +36,18 @@ void tq_ser_req_dec_msg(struct request_s *req)
 *function	:	encrypt the data to be send
 *argument	:	struct request_s *req	:	store type,lenth,content
 				uint16_t type			:	type to be send
-				struct json_object* resp_json
+				struct json_object* response_js
 											json type content
 *return		:	void
 *notice		:	
 ***********************************************************/
-void tq_ser_resp_enc_msg(struct request_s *req, uint16_t type, struct json_object* resp_json)
+void tq_ser_resp_enc_msg(struct request_s *req, uint16_t type, struct json_object* response_js)
 {
 	char* tmp_buf=NULL;
 	struct tq_ctt_s *ct = &ctt_s;
 
-	tmp_buf = (char *)json_object_to_json_string(resp_json);
-	tq_crypto_aes(&ctt_s,(unsigned char *)tmp_buf,strlen(tmp_buf),ENCRYPT);
+	tmp_buf = (char *)json_object_to_json_string(response_js);
+	tq_crypto_aes(&ctt_s,(unsigned char *)tmp_buf,strlen(tmp_buf)+1,ENCRYPT);
 	
 	req->msg.m_type = htons(type);
 	memset(req->msg.m_cont,0,SIZE_BUF_CTT);
@@ -84,11 +84,11 @@ void tq_req_get_ver(struct request_s* req)
 	char none_mac[]="";
 	char ver_buf[SIZE_VER];
 	char mac_buf[SIZE_MAC];
-	struct json_object *resp_json = NULL;
+	struct json_object *response_js = NULL;
 
 	uint16_t m_type = ntohs(req->msg.m_type);
-	resp_json = json_object_new_object();
-    if (NULL == resp_json) {
+	response_js = json_object_new_object();
+    if (NULL == response_js) {
 		printf("new json object failed.\n");
 		return;
     }
@@ -107,18 +107,18 @@ void tq_req_get_ver(struct request_s* req)
 	}
 
 	if( NULL == MAC ) {
-		json_object_object_add(resp_json, "phonemac", json_object_new_string(""));
+		json_object_object_add(response_js, "phonemac", json_object_new_string(""));
 	} else {
-		json_object_object_add(resp_json, "phonemac", json_object_new_string(MAC));
+		json_object_object_add(response_js, "phonemac", json_object_new_string(MAC));
 	}
 	if( NULL == VER ) {
-		json_object_object_add(resp_json, "routername", json_object_new_string(""));
+		json_object_object_add(response_js, "routername", json_object_new_string(""));
 	} else {
-		json_object_object_add(resp_json, "routername", json_object_new_string(VER));
+		json_object_object_add(response_js, "routername", json_object_new_string(VER));
 	}
 
-	tq_ser_resp_enc_msg(req,m_type+1,resp_json);
-	json_object_put(resp_json);
+	tq_ser_resp_enc_msg(req,m_type+1,response_js);
+	json_object_put(response_js);
 
 }
 
@@ -138,24 +138,23 @@ void tq_req_get_auth(struct request_s* req)
 	const char* MAC=NULL;
 	const char* checksum=NULL;
 	const char* timestamp=NULL;
-	struct json_object *req_json = NULL;
-	struct json_object *resp_json = NULL;
+	struct json_object *request_js = NULL;
+	struct json_object *response_js = NULL;
 
 	uint16_t m_type = ntohs(req->msg.m_type);
-	resp_json = json_object_new_object();
-    if (NULL == resp_json) {
-		json_object_put(req_json);
+	response_js = json_object_new_object();
+    if (NULL == response_js) {
+		json_object_put(request_js);
 		printf("new json object failed.\n");
 		return;
     }
 
 	m_type = ntohs(req->msg.m_type);
-	req_json = json_tokener_parse(req->msg.m_cont);
-	timestamp = tq_json_get_string(req_json,"timestamp");
-	checksum = tq_json_get_string(req_json,"checksum");
-	MAC = tq_json_get_string(req_json,"phonemac");
+	request_js = json_tokener_parse(req->msg.m_cont);
+	timestamp = tq_json_get_string(request_js,"timestamp");
+	checksum = tq_json_get_string(request_js,"checksum");
+	MAC = tq_json_get_string(request_js,"phonemac");
 
-	//not complited!!!!
 	err_no=0;
 	token=2542432423;
 	expiredtime=7200;
@@ -164,18 +163,18 @@ void tq_req_get_auth(struct request_s* req)
 	debug_info("time : %ld",tv.tv_sec);
 	debug_info("token : %u",token);
 
-	json_object_object_add(resp_json, "errno", json_object_new_int(err_no));
+	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
 	if (0==err_no)
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("success"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("success"));
 	else
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("fail"));
-	json_object_object_add(resp_json, "token", json_object_new_int64((uint32_t)token));
-	json_object_object_add(resp_json, "expiredtime", json_object_new_int(expiredtime));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("fail"));
+	json_object_object_add(response_js, "token", json_object_new_int64((uint32_t)token));
+	json_object_object_add(response_js, "expiredtime", json_object_new_int(expiredtime));
 
-	tq_ser_resp_enc_msg(req,m_type+1,resp_json);
+	tq_ser_resp_enc_msg(req,m_type+1,response_js);
 
-	json_object_put(req_json);
-	json_object_put(resp_json);
+	json_object_put(request_js);
+	json_object_put(response_js);
 }
 
 
@@ -198,24 +197,24 @@ void tq_req_get_diag(struct request_s* req)
 	const char* phonemac=NULL;
 	char dealt_buf[SIZE_BUF_DEALT];
 	char array_buf[SIZE_BUF_ARRAY];
-	struct json_object *req_json = NULL;
-	struct json_object *resp_json = NULL;
-	struct json_object *upflow_5 = NULL;
-	struct json_object *upflow_60 = NULL;
-	struct json_object *downflow_5 = NULL;
-	struct json_object *downflow_60 = NULL;
+	struct json_object *request_js = NULL;
+	struct json_object *response_js = NULL;
+	struct json_object *up_5 = NULL;
+	struct json_object *up_60 = NULL;
+	struct json_object *down_5 = NULL;
+	struct json_object *down_60 = NULL;
 	struct tq_ser_ctl *ctl = &ser_ctl;
 
 	uint16_t m_type = ntohs(req->msg.m_type);
-	resp_json = json_object_new_object();
-    if (NULL == resp_json) {
+	response_js = json_object_new_object();
+    if (NULL == response_js) {
 		printf("new json object failed.\n");
 		return;
     }
 
-	req_json = json_tokener_parse(req->msg.m_cont);
-	phonemac = tq_json_get_string(req_json,"phonemac");
-	token = tq_json_get_int(req_json,"token");
+	request_js = json_tokener_parse(req->msg.m_cont);
+	phonemac = tq_json_get_string(request_js,"phonemac");
+	token = tq_json_get_int(request_js,"token");
 
 	j = ctl->tq_diagnose.last_index % 12;
 	i = (0==j) ? 11 : j-1;
@@ -231,12 +230,10 @@ void tq_req_get_diag(struct request_s* req)
 			memset(&(ctl->tq_diagnose.diagnoses[in]),0,sizeof(ctl->tq_diagnose.diagnoses[0]));
 	}
 	else {
-		//get current diagnose info date
 		debug_info("\t diagnose[%d] - diagnose[%d]",i,j);
 	}
 	err_no=0;
 	rssi = acquire_rssi(phonemac);
-	debug_info("rssi = %d",rssi);
 	errorrate=acquire_errorrate();
 	channelrate=acquire_channelrate();
 	terminals=acquire_terminals();
@@ -256,46 +253,39 @@ void tq_req_get_diag(struct request_s* req)
 	cpu_60 /= SIZE_DIAG;
 
 	trac_dealt5 = calc_trac_dealt(dealt_buf,i,j);
-	downflow_5 = json_tokener_parse(calc_trac_array(trac_dealt5,"down",array_buf));
-	upflow_5 = json_tokener_parse(calc_trac_array(trac_dealt5,"up",array_buf));
+	down_5 = json_tokener_parse(calc_trac_array(trac_dealt5,"down",array_buf));
+	up_5 = json_tokener_parse(calc_trac_array(trac_dealt5,"up",array_buf));
 
 	trac_dealt60 = calc_trac_dealt(dealt_buf,k,j);
-	upflow_60= json_tokener_parse(calc_trac_array(trac_dealt60,"up",array_buf));
-	downflow_60= json_tokener_parse(calc_trac_array(trac_dealt60,"down",array_buf));
+	up_60= json_tokener_parse(calc_trac_array(trac_dealt60,"up",array_buf));
+	down_60= json_tokener_parse(calc_trac_array(trac_dealt60,"down",array_buf));
 	
-	json_object_object_add(resp_json, "errno", json_object_new_int(err_no));
+	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
 	if (0==err_no)
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("success"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("success"));
 	else
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("fail"));
-	json_object_object_add(resp_json, "rssi", json_object_new_int(rssi));
-	json_object_object_add(resp_json, "errorrate", json_object_new_int(0));
-	json_object_object_add(resp_json, "channelrate", json_object_new_int(0));
-	json_object_object_add(resp_json, "terminals", json_object_new_int(0));
-	//json_object_object_add(resp_json, "errorrate", json_object_new_int(errorrate));
-	//json_object_object_add(resp_json, "channelrate", json_object_new_int(channelrate));
-	//json_object_object_add(resp_json, "terminals", json_object_new_int(terminals));
-	json_object_object_add(resp_json, "cpu_5", json_object_new_int(cpu_5));
-	json_object_object_add(resp_json, "cpu_60", json_object_new_int(cpu_60));
-	json_object_object_add(resp_json, "memory_5", json_object_new_int(memory_5));
-	json_object_object_add(resp_json, "memory_60", json_object_new_int(memory_60));
-	json_object_object_add(resp_json, "errpack_5", json_object_new_int(0));
-	json_object_object_add(resp_json, "errpack_60", json_object_new_int(0));
-	json_object_object_add(resp_json, "losepack_5", json_object_new_int(0));
-	json_object_object_add(resp_json, "losepack_60", json_object_new_int(0));
-	//json_object_object_add(resp_json, "errpack_5", json_object_new_int(errpack_5));
-	//json_object_object_add(resp_json, "errpack_60", json_object_new_int(errpack_60));
-	//json_object_object_add(resp_json, "losepack_5", json_object_new_int(losepack_5));
-	//json_object_object_add(resp_json, "losepack_60", json_object_new_int(losepack_60));
-	json_object_object_add(resp_json, "upflow_5", upflow_5);
-	json_object_object_add(resp_json, "upflow_60", upflow_60);
-	json_object_object_add(resp_json, "downflow_5", downflow_5);
-	json_object_object_add(resp_json, "downflow_60", downflow_60);
+		json_object_object_add(response_js, "errmsg", json_object_new_string("fail"));
+	json_object_object_add(response_js, "rssi", json_object_new_int(rssi));
+	json_object_object_add(response_js, "errorrate", json_object_new_int(errorrate));
+	json_object_object_add(response_js, "channelrate", json_object_new_int(channelrate));
+	json_object_object_add(response_js, "terminals", json_object_new_int(terminals));
+	json_object_object_add(response_js, "cpu_5", json_object_new_int(cpu_5));
+	json_object_object_add(response_js, "cpu_60", json_object_new_int(cpu_60));
+	json_object_object_add(response_js, "memory_5", json_object_new_int(memory_5));
+	json_object_object_add(response_js, "memory_60", json_object_new_int(memory_60));
+	json_object_object_add(response_js, "errpack_5", json_object_new_int(errpack_5));
+	json_object_object_add(response_js, "errpack_60", json_object_new_int(errpack_60));
+	json_object_object_add(response_js, "losepack_5", json_object_new_int(losepack_5));
+	json_object_object_add(response_js, "losepack_60", json_object_new_int(losepack_60));
+	json_object_object_add(response_js, "up_5", up_5);
+	json_object_object_add(response_js, "up_60", up_60);
+	json_object_object_add(response_js, "down_5", down_5);
+	json_object_object_add(response_js, "down_60", down_60);
 
-	tq_ser_resp_enc_msg(req,m_type+1,resp_json);
+	tq_ser_resp_enc_msg(req,m_type+1,response_js);
 
-	json_object_put(resp_json);
-	json_object_put(req_json);
+	json_object_put(response_js);
+	json_object_put(request_js);
 }
 /***********************************************************
 *name		:	tq_req_start_qos
@@ -311,21 +301,21 @@ void tq_req_start_qos(struct request_s* req)
 	uint16_t validtime;
 	const char* MAC=NULL;
 	char nvram_buf[SIZE_BASE];
-	struct json_object *resp_json = NULL;
-	struct json_object *req_json = NULL;
+	struct json_object *response_js = NULL;
+	struct json_object *request_js = NULL;
 	struct tq_cfg_s *cfg = &cfg_ctl;
 	struct tq_ser_ctl *ctl = &ser_ctl;
 
 	uint16_t m_type = ntohs(req->msg.m_type);
-	resp_json = json_object_new_object();
-    if (NULL == resp_json) {
+	response_js = json_object_new_object();
+    if (NULL == response_js) {
 		printf("new json object failed.\n");
 		return;
     }
-	req_json = json_tokener_parse(req->msg.m_cont);
-	token = tq_json_get_int(req_json,"token");
-	MAC = tq_json_get_string(req_json,"phonemac");
-	validtime = tq_json_get_int(req_json,"validtime");
+	request_js = json_tokener_parse(req->msg.m_cont);
+	token = tq_json_get_int(request_js,"token");
+	MAC = tq_json_get_string(request_js,"phonemac");
+	validtime = tq_json_get_int(request_js,"validtime");
 
 	if (validtime == INT_INV) validtime = DEF_EXPIRE;
 
@@ -340,19 +330,19 @@ void tq_req_start_qos(struct request_s* req)
 		ctl->tq_qos.qos_tm_max = (validtime+TIME_QOS-1)/TIME_QOS;
 		ctl->tq_qos.cli_cnt = 1;
 		ctl->tq_qos.enable = 1;
-		tq_timer_new(NULL, start_qos, 1, "QOS start");
+		tq_timer_new(NULL, start_qos, 2, "QOS start");
 		ctl->tq_qos.tm = tq_timer_new(NULL, qos_tm_handler, TIME_QOS, "QOS loop Timer");
 	}
 
 	err_no = 0;
-	json_object_object_add(resp_json, "errno", json_object_new_int(err_no));
+	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
 	if (0==err_no)
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("success"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("success"));
 	else
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("fail"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("fail"));
 
-	tq_ser_resp_enc_msg(req,m_type+1,resp_json);
-	json_object_put(resp_json);
+	tq_ser_resp_enc_msg(req,m_type+1,response_js);
+	json_object_put(response_js);
 }
 
 /***********************************************************
@@ -371,27 +361,33 @@ void tq_req_start_spp(struct request_s* req)
 	int i = 0,j = 0,k = 0;
 	int ips_len = 0;
 	const char* MAC=NULL;
-	struct json_object *req_json = NULL;
-	struct json_object *resp_json = NULL;
+	char sip_s[SIZE_IP]={'\0'};
+	struct json_object *request_js = NULL;
+	struct json_object *response_js = NULL;
 	struct json_object *ipsarray = NULL;
 	struct tq_cfg_s *cfg = &cfg_ctl;
 	
 	u32 cip = req->cli_addr.sin_addr.s_addr;
 	uint16_t m_type = ntohs(req->msg.m_type);
-	resp_json = json_object_new_object();
-    if (NULL == resp_json) {
+	response_js = json_object_new_object();
+    if (NULL == response_js) {
 		printf("new json object failed.\n");
 		return;
     }
 
-	req_json = json_tokener_parse(req->msg.m_cont);
-	cfg->gap.doublegap = tq_json_get_int(req_json,"doublegap");
-	cfg->gap.thirdgap = tq_json_get_int(req_json,"thirdgap");
-	cfg->gap.fourgap = tq_json_get_int(req_json,"fourgap");
-	cfg->gap.dupgap = tq_json_get_int(req_json,"dupgap");
-	token = tq_json_get_int(req_json,"token");
-	ipsarray = tq_json_get_array(req_json,"viparray");
-	MAC = tq_json_get_string(req_json,"phonemac");
+	request_js = json_tokener_parse(req->msg.m_cont);
+	int tmp_i = tq_json_get_int(request_js,"doublegap");
+	cfg->gap.doublegap = (tmp_i!=INT_INV) ? tmp_i : 10;
+	tmp_i = tq_json_get_int(request_js,"thirdgap");
+	cfg->gap.thirdgap = (tmp_i!=INT_INV) ? tmp_i : 0;
+	tmp_i = tq_json_get_int(request_js,"fourgap");
+	cfg->gap.fourgap = (tmp_i!=INT_INV) ? tmp_i : 0;
+	tmp_i = tq_json_get_int(request_js,"dupgap");
+	cfg->gap.dupgap = (tmp_i!=INT_INV) ? tmp_i : 10;
+
+	token = tq_json_get_int(request_js,"token");
+	ipsarray = tq_json_get_array(request_js,"viparray");
+	MAC = tq_json_get_string(request_js,"phonemac");
 
 	int spp_fd = spp_netlink_connect(SPP_NETLINK_PROTO);
 
@@ -430,7 +426,15 @@ void tq_req_start_spp(struct request_s* req)
 	ips_len = (json_type_array == json_object_get_type(ipsarray)) ? json_object_array_length(ipsarray) : 0;
 	for( i = 0; i < ips_len; i++ ) {
 		struct in_addr sip_addr;
-		inet_aton(json_object_get_string(json_object_array_get_idx(ipsarray, i)),&sip_addr);
+		memset(sip_s,'\0',SIZE_IP);
+		strcpy(sip_s,json_object_get_string(json_object_array_get_idx(ipsarray, i)));
+		debug_info("sip: %s",sip_s);
+		if (strstr(sip_s,":")<0) {
+			inet_aton(sip_s,&sip_addr);
+		} else {
+			inet_aton(strtok(sip_s,":"),&sip_addr);
+		}
+
 		u32 sip = sip_addr.s_addr;
 		j = 0;
 		while (j < CLI_MAX && cfg->ips[j] != sip ) j++;
@@ -453,15 +457,15 @@ void tq_req_start_spp(struct request_s* req)
 	}
 	spp_netlink_close(spp_fd);
 	err_no = 0;
-	json_object_object_add(resp_json, "errno", json_object_new_int(err_no));
+	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
 	if (0==err_no)
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("success"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("success"));
 	else
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("fail"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("fail"));
 
-	tq_ser_resp_enc_msg(req,m_type+1,resp_json);
-	json_object_put(req_json);
-	json_object_put(resp_json);
+	tq_ser_resp_enc_msg(req,m_type+1,response_js);
+	json_object_put(request_js);
+	json_object_put(response_js);
 }
 
 /***********************************************************
@@ -479,20 +483,20 @@ void tq_req_stop_speed(struct request_s* req)
 	const char* MAC=NULL;
 	struct tq_ser_ctl *ctl = &ser_ctl;
 	struct tq_cfg_s *cfg = &cfg_ctl;
-	struct json_object *req_json = NULL;
-	struct json_object *resp_json = NULL;
+	struct json_object *request_js = NULL;
+	struct json_object *response_js = NULL;
 	
 	char *local_ip = inet_ntoa(req->cli_addr.sin_addr);
 	u32 cip = req->cli_addr.sin_addr.s_addr;
 	uint16_t m_type = ntohs(req->msg.m_type);
-	resp_json = json_object_new_object();
-    if (NULL == resp_json) {
+	response_js = json_object_new_object();
+    if (NULL == response_js) {
 		printf("new json object failed.\n");
 		return;
     }
-	req_json = json_tokener_parse(req->msg.m_cont);
-	token = tq_json_get_int(req_json,"token");
-	MAC = tq_json_get_string(req_json,"phonemac");
+	request_js = json_tokener_parse(req->msg.m_cont);
+	token = tq_json_get_int(request_js,"token");
+	MAC = tq_json_get_string(request_js,"phonemac");
 
 	int spp_fd = spp_netlink_connect(SPP_NETLINK_PROTO);
 	
@@ -516,18 +520,18 @@ void tq_req_stop_speed(struct request_s* req)
 	}
 	spp_netlink_close(spp_fd);
 	err_no = 0;
-	json_object_object_add(resp_json, "errno", json_object_new_int(err_no));
+	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
 	if (0==err_no) {
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("success"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("success"));
 	}
 	else {
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("fail"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("fail"));
 	}
 
-	tq_ser_resp_enc_msg(req,m_type+1,resp_json);
+	tq_ser_resp_enc_msg(req,m_type+1,response_js);
 
-	json_object_put(req_json);
-	json_object_put(resp_json);
+	json_object_put(request_js);
+	json_object_put(response_js);
 }
 
 /***********************************************************
@@ -542,43 +546,43 @@ void tq_req_stop_diag(struct request_s* req)
 	uint8_t err_no;
 	uint32_t token;
 	const char* MAC=NULL;
-	struct json_object *req_json = NULL;
-	struct json_object *resp_json = NULL;
+	struct json_object *request_js = NULL;
+	struct json_object *response_js = NULL;
 	struct tq_ser_ctl *ctl = &ser_ctl;
 
 	uint16_t m_type = ntohs(req->msg.m_type);
-	resp_json = json_object_new_object();
-    if (NULL == resp_json) {
+	response_js = json_object_new_object();
+    if (NULL == response_js) {
 		printf("new json object failed.\n");
 		return;
     }
-	req_json = json_tokener_parse(req->msg.m_cont);
-	token = tq_json_get_int(req_json,"token");
-	MAC = tq_json_get_string(req_json,"phonemac");
+	request_js = json_tokener_parse(req->msg.m_cont);
+	token = tq_json_get_int(request_js,"token");
+	MAC = tq_json_get_string(request_js,"phonemac");
 
 	ctl->tq_diagnose.enable = 0;
 	err_no = 0;
 
-	json_object_object_add(resp_json, "errno", json_object_new_int(err_no));
+	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
 	if (0==err_no)
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("success"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("success"));
 	else
-		json_object_object_add(resp_json, "errmsg", json_object_new_string("fail"));
+		json_object_object_add(response_js, "errmsg", json_object_new_string("fail"));
 
-	tq_ser_resp_enc_msg(req,m_type+1,resp_json);
+	tq_ser_resp_enc_msg(req,m_type+1,response_js);
 
-	json_object_put(req_json);
-	json_object_put(resp_json);
+	json_object_put(request_js);
+	json_object_put(response_js);
 }
 
 
 void tq_req_undef(struct request_s* req)
 {
-	char *unknown_msg = "Unknown message type!";
+	char *undef_msg = "Undefined message type!";
 
 	memset(req->msg.m_cont,0,SIZE_BUF_CTT);
-	strcpy(req->msg.m_cont,unknown_msg);
-	req->msg.m_cont_len = htons(strlen(unknown_msg));
+	strcpy(req->msg.m_cont,undef_msg);
+	req->msg.m_cont_len = htons(strlen(undef_msg));
 }
 
 void tq_request_parse(struct request_s* req)
@@ -587,12 +591,12 @@ void tq_request_parse(struct request_s* req)
     uint16_t msg_type = MIN_TYPE;
 
 	tq_ser_req_dec_msg(req);
-
+	debug_info("ready to parse request!");
     msg_type = ntohs(req->msg.m_type);
 	debug_info("cli_ip:%s",inet_ntoa(req->cli_addr.sin_addr));
 	debug_info("msg_type:%d",msg_type);
-	debug_info("msg_content_len:%d",ntohs(req->msg.m_cont_len));
-	debug_info("msg_content:%s",req->msg.m_cont);
+	debug_info("msg_cont_len:%d",ntohs(req->msg.m_cont_len));
+	debug_info("msg_cont:%s\tend",req->msg.m_cont);
 
     switch(msg_type)
     {

@@ -12,8 +12,8 @@ struct tq_ctt_s ctt_s;
 struct tq_cfg_s cfg_ctl;
 
 static int round_index=0;
-static char g_req[SIZE_ROUND][SIZE_BUF_MAX];
-
+char g_req[SIZE_ROUND][SIZE_BUF_MAX];
+//char g_req[SIZE_BUF_MAX];
 int tq_ser_recv_req(int fd)
 {
 	struct sockaddr_in cliaddr;
@@ -22,11 +22,11 @@ int tq_ser_recv_req(int fd)
     struct request_s *req = (struct request_s*)g_req[round_index];
 	debug_info("recv msg use g_req[%d]",round_index);
 	round_index = ( round_index + 1 ) % SIZE_ROUND;
+	//struct request_s *req = (struct request_s*)g_req;
     req->fd = fd;
-	int total = 0;
 
 	memset(&req->msg,0,SIZE_BUF_MSG);
-	n = recvfrom(fd, (void*)&req->msg, SIZE_BUF_MSG - 1, 0, (struct sockaddr*)&req->cli_addr, &len);
+	n = recvfrom(fd, (void*)&req->msg, SIZE_BUF_MSG - 1, 0, (struct sockaddr *)&req->cli_addr, &len);
 	if(n == -1)
 	{
 		if (errno == EAGAIN || errno == EINTR)
@@ -49,8 +49,11 @@ int tq_ser_recv_req(int fd)
 		int orignal = ntohs(req->msg.m_cont_len) + sizeof(struct req_msg);
 		if(orignal-n <= 2)
 		{
+			debug_info("cli_ip:%s",inet_ntoa(req->cli_addr.sin_addr));
+			debug_info("msg_type:%d",ntohs(req->msg.m_type));
+			debug_info("msg_cont_len:%d",ntohs(req->msg.m_cont_len));
 			tq_request_parse(req);
-			return total;
+			return 0;
 		}
 		else
 		{
@@ -98,9 +101,10 @@ static void server_init(void)
 	ctl->tq_qos.enable = 0;
 	ctl->tq_qos.cli_cnt = 0;
 	ctl->tq_qos.qos_tm_max = 0;
-	system("insmod spp.ko lan=\"br0\" wan=\"eth2.2\"");
-	
-    //create udp server fd for get VER info
+	//system("insmod spp.ko lan=\"br0\" wan=\"eth2.2\"");
+	system("insmod spp.ko lan=\"br0\"");
+    
+	//create udp server fd for get VER info
     fds[0] = socket(AF_INET, SOCK_DGRAM, 0);
     if(fds[0] == -1)
     {
@@ -190,7 +194,7 @@ static void server_init(void)
 void tq_server_start(void)
 {
     server_init();
-	start_diag();
+	//start_diag();
     struct epoll_event events[EVENT_MAX];
     memset(events, 0, sizeof(struct epoll_event)*EVENT_MAX);
 

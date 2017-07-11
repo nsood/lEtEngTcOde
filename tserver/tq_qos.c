@@ -22,7 +22,6 @@ int acquire_ip_qos_list(char *ip_qos_list,size_t size)
 	struct in_addr addr;
 	fp = fopen("/var/udhcpd.leases", "r");
 	if (fp != NULL) {
-		//memset(ip_qos_list,'\0',SIZE_BASE);
 		while (size  &&fread(&dhcp_lease, 1, sizeof(dhcp_lease),fp) == sizeof(dhcp_lease)) {
 			addr.s_addr = dhcp_lease.ip;
 			snprintf(ipAddr,sizeof(ipAddr),inet_ntoa(addr));
@@ -32,7 +31,7 @@ int acquire_ip_qos_list(char *ip_qos_list,size_t size)
 			size -= sn;
 		}
 		fclose(fp);
-		*(--ip_qos_list) = '\0';//delete last ';'
+		*(--ip_qos_list) = '\0';//deal with last ';'
 	}
 	return (int)(orig - size);
 }
@@ -60,9 +59,9 @@ void start_qos()
 	strncpy(ctl->tq_qos.ip_list,ip_qos_list,ips_len);
 	sprintf(buf,"\"%s\"",ip_qos_list);
 
-	debug_info("ip_qos_list : %s ",buf);
-	debug_info("timeout : %d",ctl->tq_qos.qos_tm_max);
-	debug_info("cli_cnt : %d",ctl->tq_qos.cli_cnt);
+	debug_info("\tip_qos_list : %s ",buf);
+	debug_info("\ttimeout : %d",ctl->tq_qos.qos_tm_max);
+	debug_info("\tcli_cnt : %d",ctl->tq_qos.cli_cnt);
 
 	nvram_set("IpQosList", buf);
 	sleep(4);

@@ -134,6 +134,6 @@ int aes_decrypt_ccm(const BYTE ciphertext[],             // IN  - Ciphertext, th
 
 
 void tq_crypto(struct tq_ctt_s *ct, int mode);
-void tq_crypto_aes(struct tq_ctt_s *ct, unsigned char *data, uint16_t len, int flag);
+void tq_crypto_aes(struct tq_ctt_s *ct, unsigned char *data, int len, int flag);
 
 #endif   // AES_H

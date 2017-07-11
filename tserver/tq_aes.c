@@ -1093,7 +1093,7 @@ void tq_crypto(struct tq_ctt_s *ct, int mode)
 	if (!output) {
 		free(input);
 	}
-	memset(output, src_len, 0);
+	memset(output, 0, src_len);
 
 	//set key & iv
 	WORD key_schedule[AES_BLOCK_SIZE * 4] = { 0 };
@@ -1138,12 +1138,26 @@ void tq_crypto(struct tq_ctt_s *ct, int mode)
 *notice		:	call function 'tq_crypto()' in tq_aes.c
 				result stored in global variable
 ***********************************************************/
-void tq_crypto_aes(struct tq_ctt_s *ct, unsigned char *data, uint16_t len, int flag)
+void tq_crypto_aes(struct tq_ctt_s *ct, unsigned char *data, int len, int flag)
 {
-	memset(ct->con,0,CONTENT_S_SIZE);
+	memset(ct->con,'\0',CONTENT_S_SIZE);
 	ct->len = len;
 	memcpy(ct->con,data,ct->len);
-
+#define DEBUG_CRYPT 0
+#if DEBUG_CRYPT
+	printf("pre crypt result : \nlen=%d\n",len);
+	for(int i=0;i<len;i++){
+		printf("%02X ",ct->con[i]);
+	}
+	printf("\n");
+#endif
 	tq_crypto(ct, flag);
+#if DEBUG_CRYPT
+	printf("after crypt result : \nlen=%d\n",len);
+	for(int i=0;i<len;i++){
+		printf("%02X ",ct->con[i]);
+	}
+	printf("\n");
+#endif
 }
 

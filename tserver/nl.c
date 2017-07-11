@@ -77,7 +77,7 @@ int spp_netlink_send_msg(int nl_fd, u8 *data, u16 data_len)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 	//send message
-	printf("send smg\n");
+	printf("send msg\n");
     
 	state_smg = sendmsg(nl_fd, &msg, 0);
     free(nlh);
