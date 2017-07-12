@@ -12,8 +12,8 @@ struct tq_ctt_s ctt_s;
 struct tq_cfg_s cfg_ctl;
 
 static int round_index=0;
-char g_req[SIZE_ROUND][SIZE_BUF_MAX];
-//char g_req[SIZE_BUF_MAX];
+static char g_req[SIZE_ROUND][SIZE_BUF_MAX];
+//static char g_req[SIZE_BUF_MAX];
 int tq_ser_recv_req(int fd)
 {
 	struct sockaddr_in cliaddr;
@@ -22,10 +22,10 @@ int tq_ser_recv_req(int fd)
     struct request_s *req = (struct request_s*)g_req[round_index];
 	debug_info("recv msg use g_req[%d]",round_index);
 	round_index = ( round_index + 1 ) % SIZE_ROUND;
-	//struct request_s *req = (struct request_s*)g_req;
-    req->fd = fd;
+//	struct request_s *req = (struct request_s*)g_req;
 
-	memset(&req->msg,0,SIZE_BUF_MSG);
+	memset(req,0,SIZE_BUF_MAX);
+    req->fd = fd;
 	n = recvfrom(fd, (void*)&req->msg, SIZE_BUF_MSG - 1, 0, (struct sockaddr *)&req->cli_addr, &len);
 	if(n == -1)
 	{
@@ -47,6 +47,7 @@ int tq_ser_recv_req(int fd)
 	else
 	{
 		int orignal = ntohs(req->msg.m_cont_len) + sizeof(struct req_msg);
+		debug_info("receive orignal : %d ",orignal);
 		if(orignal-n <= 2)
 		{
 			debug_info("cli_ip:%s",inet_ntoa(req->cli_addr.sin_addr));

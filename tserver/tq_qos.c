@@ -20,11 +20,25 @@ int acquire_ip_qos_list(char *ip_qos_list,size_t size)
 	char ipAddr[64];
 	FILE *fp;
 	struct in_addr addr;
+	struct tq_ser_ctl *ctl = &ser_ctl;
 	fp = fopen("/var/udhcpd.leases", "r");
 	if (fp != NULL) {
 		while (size  &&fread(&dhcp_lease, 1, sizeof(dhcp_lease),fp) == sizeof(dhcp_lease)) {
 			addr.s_addr = dhcp_lease.ip;
 			snprintf(ipAddr,sizeof(ipAddr),inet_ntoa(addr));
+#if 1
+			//cip pass...
+			int i=0,flag=0;
+			for(i=0;i<CLI_MAX;i++) {
+				if(ctl->tq_qos.qos_cli[i].en==1 && 0==strcmp(ipAddr,ctl->tq_qos.qos_cli[i].ip)) {
+					flag = 1;
+				}
+			}
+			if(flag>0) {
+				debug_info("cip %s qos passed",ipAddr);
+				continue;
+			}
+#endif
 			debug_info("IP:%s",ipAddr);
 			size_t sn = snprintf(ip_qos_list,size,"%s,1000,1000;",inet_ntoa(addr));
 			ip_qos_list += sn;
