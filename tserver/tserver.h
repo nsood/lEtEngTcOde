@@ -5,8 +5,6 @@
 
 #define RTDEV_SUPPORT
 
-#define INT_INV (0x7FFFFFF)
-
 #define SIZE_IP 32
 #define SIZE_MAC 32
 #define SIZE_NVRAM 1024
@@ -74,6 +72,7 @@ struct qos_cli{
 
 struct tq_qos_ctl{
 	u8 enable;
+	int brandlimit;
 	struct qos_cli qos_cli[CLI_MAX];
 	int qos_tm_max;
 	int cli_cnt;

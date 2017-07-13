@@ -35,12 +35,13 @@ int acquire_ip_qos_list(char *ip_qos_list,size_t size)
 				}
 			}
 			if(flag>0) {
-				debug_info("cip %s qos passed",ipAddr);
+				debug_info("CIP %s(qos passed)",ipAddr);
 				continue;
 			}
 #endif
 			debug_info("IP:%s",ipAddr);
-			size_t sn = snprintf(ip_qos_list,size,"%s,1000,1000;",inet_ntoa(addr));
+			int brandlimit = (ctl->tq_qos.brandlimit>0)?ctl->tq_qos.brandlimit*1000:1000;
+			size_t sn = snprintf(ip_qos_list,size,"%s,%d,%d;",inet_ntoa(addr),brandlimit,brandlimit);
 			ip_qos_list += sn;
 			size -= sn;
 		}

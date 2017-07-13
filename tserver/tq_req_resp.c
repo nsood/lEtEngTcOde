@@ -299,6 +299,7 @@ void tq_req_start_qos(struct request_s* req)
 	uint8_t err_no;
 	uint32_t token;
 	uint16_t validtime;
+	int brandqos,brandlimit;
 	const char* MAC=NULL;
 	char nvram_buf[SIZE_BASE];
 	struct json_object *response_js = NULL;
@@ -316,8 +317,14 @@ void tq_req_start_qos(struct request_s* req)
 	token = tq_json_get_int(request_js,"token");
 	MAC = tq_json_get_string(request_js,"phonemac");
 	validtime = tq_json_get_int(request_js,"validtime");
+	brandqos = tq_json_get_int(request_js,"brandqos");// 1:open 0:close
+	brandlimit = tq_json_get_int(request_js,"brandlimit");//Mbps
+
+	debug_info("brandqos:%d brandlimit:%d",brandqos,brandlimit);
+	//if (brandqos == 0) goto NON_QOS;
 
 	if (validtime == INT_INV) validtime = DEF_EXPIRE;
+	ctl->tq_qos.brandlimit = brandlimit;
 
 	record_new_client(inet_ntoa(req->cli_addr.sin_addr),(validtime+TIME_QOS-1)/TIME_QOS);
 
@@ -334,6 +341,7 @@ void tq_req_start_qos(struct request_s* req)
 		ctl->tq_qos.tm = tq_timer_new(NULL, qos_tm_handler, TIME_QOS, "QOS loop Timer");
 	}
 
+//NON_QOS:
 	err_no = 0;
 	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
 	if (0==err_no)

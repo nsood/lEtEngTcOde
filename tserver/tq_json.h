@@ -5,7 +5,8 @@
 
 #include <assert.h>
 
-#define INT_INV (0x7FFFFFF)
+//#define INT_INV (0x7FFFFFF)
+#define INT_INV 0
 
 #define jo_array_string_check(_jo_,__str__,_len_,__len__) do {\
 	if (!_jo_)\

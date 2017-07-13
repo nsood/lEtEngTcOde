@@ -11,18 +11,18 @@ struct tq_ser_ctl ser_ctl;
 struct tq_ctt_s ctt_s;
 struct tq_cfg_s cfg_ctl;
 
-static int round_index=0;
-static char g_req[SIZE_ROUND][SIZE_BUF_MAX];
-//static char g_req[SIZE_BUF_MAX];
+//static int round_index=0;
+//static char g_req[SIZE_ROUND][SIZE_BUF_MAX];
+static unsigned char g_req[SIZE_BUF_MAX];
 int tq_ser_recv_req(int fd)
 {
 	struct sockaddr_in cliaddr;
 	socklen_t len = sizeof(cliaddr);
 	int n;
-    struct request_s *req = (struct request_s*)g_req[round_index];
-	debug_info("recv msg use g_req[%d]",round_index);
-	round_index = ( round_index + 1 ) % SIZE_ROUND;
-//	struct request_s *req = (struct request_s*)g_req;
+//    struct request_s *req = (struct request_s*)g_req[round_index];
+//	debug_info("recv msg use g_req[%d]",round_index);
+//	round_index = ( round_index + 1 ) % SIZE_ROUND;
+	struct request_s *req = (struct request_s*)g_req;
 
 	memset(req,0,SIZE_BUF_MAX);
     req->fd = fd;
@@ -100,6 +100,7 @@ static void server_init(void)
 	memset(ctl,0,sizeof(struct tq_ser_ctl));
 	ctl->tq_diagnose.enable = 0;
 	ctl->tq_qos.enable = 0;
+	ctl->tq_qos.brandlimit = 0;
 	ctl->tq_qos.cli_cnt = 0;
 	ctl->tq_qos.qos_tm_max = 0;
 	//system("insmod spp.ko lan=\"br0\" wan=\"eth2.2\"");
