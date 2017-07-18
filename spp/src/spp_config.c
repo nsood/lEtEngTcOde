@@ -142,8 +142,8 @@ int  spp_config_init(void)
 
 	sc->wmm = true;
 	sc->dup[0] = 20;
-	sc->dup[1] = 40;
-	sc->dup[2] = 80;
+	sc->dup[1] = 0;
+	sc->dup[2] = 0;
 	sc->trim = 100;
 
 	sc->cache = kmem_cache_create("spp_ip_entry",

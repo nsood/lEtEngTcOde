@@ -28,7 +28,7 @@ void tq_ser_req_dec_msg(struct request_s *req)
 	memset(req->msg.m_cont,'\0',SIZE_BUF_MSG);
 	memcpy(req->msg.m_cont,ct->con,ct->len);
 	req->msg.m_cont_len = htons(ct->len);
-	debug_info("decrypt len : %d msg:%s \tend",ct->len,req->msg.m_cont);
+	//debug_info("decrypt len : %d msg:%s \tend",ct->len,req->msg.m_cont);
 }
 
 /***********************************************************
@@ -66,7 +66,12 @@ void tq_ser_req_resp(struct request_s *req)
 {
 	int n = sendto(req->fd, (void*)(&(req->msg)),sizeof(struct req_msg) + ntohs(req->msg.m_cont_len), 0,
 			(struct sockaddr*)&req->cli_addr,sizeof(struct sockaddr));
-	debug_info("sendto [%d] %d\n",req->fd,n);
+	debug_info("sendto\tsock[%d] type[%d] ip[%s] port[%d] len[%d]\n",
+		req->fd,
+		ntohs(req->msg.m_type),
+		inet_ntoa(req->cli_addr.sin_addr),
+		ntohs(req->cli_addr.sin_port),
+		n);
 }
 
 /***********************************************************
@@ -601,9 +606,9 @@ void tq_request_parse(struct request_s* req)
 	tq_ser_req_dec_msg(req);
 	debug_info("ready to parse request!");
     msg_type = ntohs(req->msg.m_type);
-	debug_info("cli_ip:%s",inet_ntoa(req->cli_addr.sin_addr));
-	debug_info("msg_type:%d",msg_type);
-	debug_info("msg_cont_len:%d",ntohs(req->msg.m_cont_len));
+	//debug_info("cli_ip:%s",inet_ntoa(req->cli_addr.sin_addr));
+	//debug_info("msg_type:%d",msg_type);
+	//debug_info("msg_cont_len:%d",ntohs(req->msg.m_cont_len));
 	debug_info("msg_cont:%s\tend",req->msg.m_cont);
 
     switch(msg_type)

@@ -50,7 +50,11 @@ int tq_ser_recv_req(int fd)
 		debug_info("receive orignal : %d ",orignal);
 		if(orignal-n <= 2)
 		{
-			debug_info("cli_ip:%s",inet_ntoa(req->cli_addr.sin_addr));
+			debug_info("recvfrom\tsock[%d] ip[%s] port[%d] len[%d]\n",
+				req->fd,
+				inet_ntoa(req->cli_addr.sin_addr),
+				ntohs(req->cli_addr.sin_port),
+				n);
 			debug_info("msg_type:%d",ntohs(req->msg.m_type));
 			debug_info("msg_cont_len:%d",ntohs(req->msg.m_cont_len));
 			tq_request_parse(req);
@@ -118,8 +122,10 @@ static void server_init(void)
     srvaddr_v.sin_family = AF_INET;
     srvaddr_v.sin_port = htons(PORT_V);
     srvaddr_v.sin_addr.s_addr = htonl(INADDR_ANY);
-    bind(fds[0], (struct sockaddr *)&srvaddr_v, sizeof(srvaddr_v));
-
+	if ( bind(fds[0], (struct sockaddr *)&srvaddr_v, sizeof(srvaddr_v)) < 0 ) {
+		perror("bind");
+		exit(1);
+	}
     //create udp server fd for getting CMD
     fds[1] = socket(AF_INET, SOCK_DGRAM, 0);
     if(fds[1] == -1)
@@ -132,7 +138,11 @@ static void server_init(void)
     srvaddr_o.sin_family = AF_INET;
     srvaddr_o.sin_port = htons(PORT_O);
     srvaddr_o.sin_addr.s_addr = htonl(INADDR_ANY);
-    bind(fds[1], (struct sockaddr *)&srvaddr_o, sizeof(srvaddr_o));
+	if ( bind(fds[1], (struct sockaddr *)&srvaddr_o, sizeof(srvaddr_o)) < 0 ) {
+		perror("bind");
+		exit(1);
+	}
+
     //create timer for timerbase
     fds[2] = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if(fds[2] == -1)

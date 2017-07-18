@@ -45,7 +45,7 @@ static bool spp_packet_hash(const struct iphdr *iph,struct spp_packet_entry *he)
 	u8 *data = NULL;
 	struct udphdr *uh;
 	struct tcphdr *th;
-	if (!(iph->frag_off & IP_DF))
+	if (iph->frag_off & IP_DF)
 		return false;
 	
 	u8 *transport = (u8 *)iph + iphlen;
@@ -61,7 +61,7 @@ static bool spp_packet_hash(const struct iphdr *iph,struct spp_packet_entry *he)
 	break;
 	case IPPROTO_UDP:
 		uh = (struct udphdr *)transport;
-		he->ulen = ntohs(uh->len);
+		he->ulen = ntohs(uh->len) - sizeof(*uh);
 		data = (u8 *)uh + 1;
 		he->sport = uh->source;
 		he->dport = uh->dest;
@@ -78,12 +78,6 @@ static bool spp_packet_hash(const struct iphdr *iph,struct spp_packet_entry *he)
 	he->saddr = iph->saddr;
 	he->daddr = iph->daddr;
 
-#if 0
-	printk("HE %u.%u.%u.%u:%u to %u.%u.%u.%u:%u %u bytes %s\n",
-		(he->saddr >> 24)&0xFF,(he->saddr >> 16)&0xFF,(he->saddr >> 8)&0xFF,he->saddr&0xFF,he->sport,
-		(he->daddr >> 24)&0xFF,(he->daddr >> 16)&0xFF,(he->daddr >> 8)&0xFF,he->daddr&0xFF,he->dport,
-		he->ulen,he->protocol == IPPROTO_TCP ? "TCP":"UDP");
-#endif
 	return true;
 }
 
@@ -142,6 +136,10 @@ static void nf_network_dump(void *v)
 		kmem_cache_free(nctx.dup_cache,dumper);
 	}
 	BUG_ON(skb->data != (unsigned char *)ip_hdr(skb));	
+#if 0
+	unsigned char *p = skb->data+ip_hdr(skb)->ihl * 4+sizeof(struct udphdr);
+	printk("new skb num : %02X %02X \n",*(p+12),*(p+13));
+#endif
 	ip_local_out(skb);
 }
 
@@ -185,7 +183,8 @@ static unsigned int nf_network_up(
 	iph  = (struct iphdr *)skb_network_header(skb);
 	if (iph == NULL || !spp_cip_match(iph->saddr,false) || !spp_sip_match(iph->daddr,false))
 		return NF_ACCEPT;
-	
+
+
 	struct spp_packet_entry pe,*ppe = NULL;
 	if (!spp_packet_hash(iph,&pe))
 		return NF_ACCEPT;
@@ -193,10 +192,16 @@ static unsigned int nf_network_up(
 	spin_lock_bh(&ctx->lock);
 	int exsit = spp_hash_add(ctx->pkt,pe.uhash,&pe,(void **)&ppe);
 	spin_unlock_bh(&ctx->lock);
-
-	if (exsit == -EEXIST) 
+#if 0
+	printk("exsit = %d\n",exsit);
+#endif
+	if (exsit == -EEXIST) {
+#if 0
+		unsigned char *p = skb->data+ip_hdr(skb)->ihl * 4+sizeof(struct udphdr);
+		printk("drop %02x%02x\n",p[12],p[13]);
+#endif
 		return NF_DROP;
-	
+	}
 	if (ppe != NULL && !spp_timer_new(pkt_timeout,ppe,NULL,spp_trim_get())) 
 		pkt_timeout(ppe);
 	
@@ -264,7 +269,10 @@ static unsigned int nf_network_down(
 
 		dumper->cnt = 1;
 		dumper->skb = new_skb;
-		
+#if 0
+		unsigned char *p = skb->data+ip_hdr(skb)->ihl * 4+sizeof(struct udphdr);
+		printk("skb num : %02X %02X \n",*(p+12),*(p+13));
+#endif
 		if (!spp_timer_new(nf_network_dump,dumper,nf_network_cancel,dup)) {
 			kfree_skb(new_skb);
 			kmem_cache_free(ctx->dup_cache,dumper);

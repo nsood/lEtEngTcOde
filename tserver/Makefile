@@ -1,11 +1,11 @@
 CFLAGS += -O2 -std=gnu99 -Wall -Wno-unused-but-set-variable -Werror
 CFLAGS += -I../json-c/json-c-0.11/                                                              
 CFLAGS += -L../../romfs/lib/
-LDFLAGS += -static
+#LDFLAGS += -static
 
 LDFLAGS += -ljson-c
 
-target:=tqos_new
+target:=tqos
 
 objs = $(patsubst %.c,%.o,$(wildcard *.c))
 

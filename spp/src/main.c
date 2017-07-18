@@ -7,7 +7,7 @@
 #include "spp_timer.h"
 #include "spp_comm.h"
 
-#if 1
+#if 0
 static const char *sips[] = {
 	"61.151.186.121",
 	"61.151.186.122",
@@ -47,7 +47,7 @@ static int __init spp_init(void)
 	int err = spp_config_init();
 	if (err) 
 		goto conf_err;
-#if 1
+#if 0
 	u32 i;
 	for (i = 0 ; i < sizeof(sips)/sizeof(sips[0]) ; i++) 
 		spp_sip_add(in_aton(sips[i]));
