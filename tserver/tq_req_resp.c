@@ -292,6 +292,34 @@ void tq_req_get_diag(struct request_s* req)
 	json_object_put(response_js);
 	json_object_put(request_js);
 }
+
+void record_qos_cfg_to_file(void)
+{
+	struct tq_cfg_s *cfg = &cfg_ctl;
+	struct json_object *qos_cfg_file_js = NULL;
+
+	qos_cfg_file_js = json_object_new_object();
+    if (NULL == qos_cfg_file_js) {
+		printf("new json object failed.\n");
+		return;
+    }
+
+	if (cfg->qos.en==1) {
+		json_object_object_add(qos_cfg_file_js, "QoSEnable", json_object_new_string("2"));
+	} else {
+		json_object_object_add(qos_cfg_file_js, "QoSEnable", json_object_new_string("0"));
+	}
+
+	json_object_object_add(qos_cfg_file_js, "IpQosList", json_object_new_string(cfg->qos.ip_list));
+	debug_info("write qos config to file!");
+	system("[ -f /data/qos_cfg.file ] && rm /data/qos_cfg.file");
+	system("[ ! -f /data/qos_cfg.file ] && touch /data/qos_cfg.file");
+	if(0!=json_object_to_file("/data/qos_cfg.file", qos_cfg_file_js)){
+		debug_info("write qos config to file failed!");
+	}
+	json_object_put(qos_cfg_file_js);
+}
+
 /***********************************************************
 *name		:	tq_req_start_qos
 *function	:	request response, qos start 
@@ -336,13 +364,16 @@ void tq_req_start_qos(struct request_s* req)
 	debug_info("ctl->tq_qos.enable : %d",ctl->tq_qos.enable);
 	if ( 0==ctl->tq_qos.enable ) {
 		//store the qos config before our tserver
-		cfg->qos.en = (NULL!=strstr(nvram_get("QoSEnable",nvram_buf),"2")) ? 1 : 0;
-		strcpy(cfg->qos.ip_list,nvram_get("IpQosList",nvram_buf));
+		get_nvram("QoSEnable",nvram_buf);
+		cfg->qos.en = (NULL!=strstr(nvram_buf,"2")) ? 1 : 0;
+		strcpy(cfg->qos.ip_list,get_nvram("IpQosList",nvram_buf));
 
 		ctl->tq_qos.qos_tm_max = (validtime+TIME_QOS-1)/TIME_QOS;
 		ctl->tq_qos.cli_cnt = 1;
 		ctl->tq_qos.enable = 1;
-		tq_timer_new(NULL, start_qos, 2, "QOS start");
+		//record qos config to file
+		record_qos_cfg_to_file();
+		tq_timer_new(NULL, start_qos, 5, "QOS start");
 		ctl->tq_qos.tm = tq_timer_new(NULL, qos_tm_handler, TIME_QOS, "QOS loop Timer");
 	}
 
@@ -396,7 +427,7 @@ void tq_req_start_spp(struct request_s* req)
 	tmp_i = tq_json_get_int(request_js,"fourgap");
 	cfg->gap.fourgap = (tmp_i!=INT_INV) ? tmp_i : 0;
 	tmp_i = tq_json_get_int(request_js,"dupgap");
-	cfg->gap.dupgap = (tmp_i!=INT_INV) ? tmp_i : 10;
+	cfg->gap.dupgap = (tmp_i!=INT_INV) ? tmp_i : 20;
 
 	token = tq_json_get_int(request_js,"token");
 	ipsarray = tq_json_get_array(request_js,"viparray");
@@ -404,10 +435,25 @@ void tq_req_start_spp(struct request_s* req)
 
 	int spp_fd = spp_netlink_connect(SPP_NETLINK_PROTO);
 
-	if (cfg->gap.doublegap > 0 && cfg->gap.doublegap < 10) cfg->gap.doublegap = 10;
-	if (cfg->gap.thirdgap > 0 && cfg->gap.thirdgap < 10) cfg->gap.thirdgap = 10;
-	if (cfg->gap.fourgap > 0 && cfg->gap.fourgap < 10) cfg->gap.fourgap = 10;
-	if (cfg->gap.dupgap > 0 && cfg->gap.dupgap < 10) cfg->gap.dupgap = 10;
+	if (cfg->gap.doublegap > 0 && cfg->gap.doublegap < 10)
+		cfg->gap.doublegap = 10;
+	else if(cfg->gap.doublegap > 200)
+		cfg->gap.doublegap = 200;
+
+	if (cfg->gap.thirdgap > 0 && cfg->gap.thirdgap < 10)
+		cfg->gap.thirdgap = 10;
+	else if(cfg->gap.thirdgap > 200)
+		cfg->gap.thirdgap = 200;
+
+	if (cfg->gap.fourgap > 0 && cfg->gap.fourgap < 10)
+		cfg->gap.fourgap = 10;
+	else if(cfg->gap.fourgap > 200)
+		cfg->gap.fourgap = 200;
+
+	if (cfg->gap.dupgap > 0 && cfg->gap.dupgap < 20)
+		cfg->gap.dupgap = 20;
+	else if(cfg->gap.dupgap > 100)
+		cfg->gap.dupgap = 100;
 
 	debug_info("spp.gap = %d:%d:%d:%d",cfg->gap.doublegap,cfg->gap.thirdgap,cfg->gap.fourgap,cfg->gap.dupgap);
 
@@ -449,6 +495,10 @@ void tq_req_start_spp(struct request_s* req)
 		}
 
 		u32 sip = sip_addr.s_addr;
+		if (sip==0){
+			debug_info("sip == 0.0.0.0 ,do NOT add it to spp");
+			continue;
+		}
 		j = 0;
 		while (j < CLI_MAX && cfg->ips[j] != sip ) j++;
 		if ( j >= CLI_MAX ) {
@@ -468,6 +518,7 @@ void tq_req_start_spp(struct request_s* req)
 			debug_info("ips[%d] sip : %s exist!",j,inet_ntoa(sip_addr));
 		}
 	}
+
 	spp_netlink_close(spp_fd);
 	err_no = 0;
 	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
@@ -517,7 +568,7 @@ void tq_req_stop_speed(struct request_s* req)
 		//del local ip from ipd[]
 		if ( cfg->ipd[i] == cip ) {
 			cfg->ipd[i] = 0;
-			spp_cip_del(spp_fd, cip);
+			if (0==spp_cip_del(spp_fd, cip)) debug_info("del cip :%s",local_ip);
 		}
 		//del local ip from qos_clients[]
 		if (0==strcmp(ctl->tq_qos.qos_cli[i].ip,local_ip)) {

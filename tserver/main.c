@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "include.h"
+#include "tq_json.h"
 #include "tserver.h"
 #include "tq_mach_api.h"
 
@@ -52,6 +53,22 @@ int tq_daemon()
 	}
 	return 0;
 }
+
+void reset_qos_config_from_file()
+{
+	debug_info("Reset qos config cause an accident.");
+	struct json_object *qos_cfg_file_js = NULL;
+	qos_cfg_file_js = json_object_from_file("/data/qos_cfg.file");
+	if (NULL != qos_cfg_file_js) {
+		char qos_cfg_buf[SIZE_BASE]={'\0'};
+		sprintf(qos_cfg_buf,"/tmp/qos.sh \"%s\" \"%s\" &",
+			tq_json_get_string(qos_cfg_file_js,"QoSEnable"),
+			tq_json_get_string(qos_cfg_file_js,"IpQosList"));
+		system(qos_cfg_buf);
+		debug_info("Reset : %s",qos_cfg_buf);
+		json_object_put(qos_cfg_file_js);
+	}
+}
 #if 1
 void sighandler(int sig,siginfo_t *si,void *ctx)
 {
@@ -61,10 +78,17 @@ void sighandler(int sig,siginfo_t *si,void *ctx)
 	}
 
 	//deal qos accidence
-	nvram_set("QoSEnable", "0");
+	system("rmmod spp");
+#if 0
+	set_nvram("QoSEnable", "0");
 	sleep(4);
 	system("jcc_ctrl updatenvram 0");
 	system("jcc_ctrl restartqos &");
+#else
+	if(0 == access("/data/qos_cfg.file", F_OK)) {
+		reset_qos_config_from_file();
+	}
+#endif
 	int i = 0;
 	//close(epfd);
 	for(i = 0; i < 3; i++)
@@ -132,7 +156,25 @@ int main(int argc, char *argv[])
 
 
 	system("[ -f /tmp/debug.file ] && rm /tmp/debug.file");
-	debug_info("init log\n");
+	debug_info("init log...");
+
+	system("[ -f /tmp/qos.sh ] && rm /tmp/qos.sh");
+	system("echo '#!/bin/sh' >> /tmp/qos.sh");
+	system("echo 'nvram_set 2860 QoSEnable $1' >> /tmp/qos.sh");
+	system("echo 'if [ ! -z $2 ];then' >> /tmp/qos.sh");
+	system("echo 'nvram_set 2860 IpQosList $2' >> /tmp/qos.sh");
+	system("echo 'else' >> /tmp/qos.sh");
+	system("echo 'nvram_set 2860 IpQosList \"\"' >> /tmp/qos.sh");
+	system("echo 'fi' >> /tmp/qos.sh");
+	system("echo 'jcc_ctrl updatenvram 0' >> /tmp/qos.sh");
+	system("echo 'jcc_ctrl restartqos' >> /tmp/qos.sh");
+	system("chmod a+x /tmp/qos.sh");
+	debug_info("init qos script...\n");
+
+	if(0 == access("/data/qos_cfg.file", F_OK)) {
+		reset_qos_config_from_file();
+		system("[ -f /data/qos_cfg.file ] && rm /data/qos_cfg.file && echo 'rm qos_cfg.file success.'");
+	}
 
 	struct sigaction act;
 #if 0
@@ -142,7 +184,6 @@ int main(int argc, char *argv[])
 #endif
 	act.sa_flags = SA_SIGINFO;
 	sigaction(SIGINT, &act, NULL);
-	sigaction(SIGKILL, &act, NULL);
 	sigaction(SIGSEGV, &act, NULL);
 	timer_init();
 	//add_timer_test();

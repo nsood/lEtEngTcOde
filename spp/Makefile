@@ -1,40 +1,14 @@
-#
-# Copyright (C) 2008 OpenWrt.org
-#
-# This is free software, licensed under the GNU General Public License v2.
-# See /LICENSE for more information.
-#
 
-include $(TOPDIR)/rules.mk
-include $(INCLUDE_DIR)/kernel.mk
+obj-m := spp.o
+spp-objs := main.o spp_config.o spp_network.o spp_struct.o spp_timer.o spp_comm.o
 
-PKG_NAME:=spp
-PKG_RELEASE:=1
+ccflags-y += -std=gnu99 -Wno-declaration-after-statement
 
-include $(INCLUDE_DIR)/package.mk
+CURRENT_DIR := $(shell pwd)
+LINUX_KERNEL_DIR := $(CURRENT_DIR)/../linux-2.6.36.x
 
-define KernelPackage/spp
-  SUBMENU:=Other modules
-  TITLE:=Game Spp
-  DEPENDS:=
-  FILES:=$(PKG_BUILD_DIR)/spp.ko
-  AUTOLOAD:=$(call AutoLoad,10,spp)
-endef
+all:
+	make -C $(LINUX_KERNEL_DIR) M=$(CURRENT_DIR) modules
 
-MAKE_OPTS:= \
-	ARCH="$(LINUX_KARCH)" \
-	CROSS_COMPILE="$(TARGET_CROSS)" \
-	SUBDIRS="$(PKG_BUILD_DIR)"
-
-define Build/Prepare
-	mkdir -p $(PKG_BUILD_DIR)
-	$(CP) ./src/* $(PKG_BUILD_DIR)/
-endef
-
-define Build/Compile
-	$(MAKE) -C "$(LINUX_DIR)" \
-		$(MAKE_OPTS) \
-		modules
-endef
-
-$(eval $(call KernelPackage,spp))
+clean:
+	make -C $(LINUX_KERNEL_DIR) M=$(CURRENT_DIR) clean

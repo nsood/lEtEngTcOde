@@ -1,3 +1,4 @@
+#ifdef _USE_SPP_TIMER
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -81,6 +82,9 @@ bool spp_timer_new(void (*func)(void *),void *v,void (*cancel)(void *),unsigned 
 	spin_lock(&ctx->lock);
 	res = spp_heap_add(ctx->heap,tm);
 	spin_unlock(&ctx->lock);
+	
+	if (!res)
+		kmem_cache_free(ctx->cache,tm);
 	return res;
 }
 int  spp_timer_init(void)
@@ -95,7 +99,7 @@ int  spp_timer_init(void)
 	if (ctx->cache == NULL) 
 		return -ENOMEM;
 	
-	ctx->heap = spp_heap_new(1024,spp_timer_cmp);
+	ctx->heap = spp_heap_new(512,spp_timer_cmp);
 	if (ctx->heap == NULL) {
 		kmem_cache_destroy(ctx->cache);
 		return -ENOMEM;
@@ -125,3 +129,4 @@ void  spp_timer_fini(void)
 	spp_heap_destroy(ctx->heap);
 	kmem_cache_destroy(ctx->cache);
 }
+#endif

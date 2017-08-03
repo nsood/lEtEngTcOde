@@ -2,6 +2,8 @@
 #include <linux/slab.h>
 
 #define SPP_HEAP_MAX 8192
+#define SPP_HASH_MAX 8192
+
 struct spp_heap{
 	int (*cmp)(void *,void *);
 	void **heap;
@@ -29,6 +31,14 @@ struct spp_heap *spp_heap_new(unsigned int size,
 	h->pos = 1;
 	return h;
 }
+unsigned int spp_heap_size(struct spp_heap *h)
+{
+	return h->size;
+}
+unsigned int spp_heap_pos(struct spp_heap *h)
+{
+	return h->pos;
+}
 
 bool spp_heap_empty(struct spp_heap *h)
 {
@@ -42,7 +52,7 @@ void *spp_heap_top(struct spp_heap *h)
 
 void *spp_heap_del(struct spp_heap *h)
 {
-	void *res = NULL,*last ;
+	void *res = NULL,*last;
 	unsigned int pos;
 	
 	res = h->heap[1];
@@ -54,7 +64,7 @@ void *spp_heap_del(struct spp_heap *h)
 		int ret = h->cmp(h->heap[left],h->heap[right]);
 		if (ret < 0) 
 			min = left;
-		 else 
+		else 
 			min = right;
 		
 		if (h->cmp(last,h->heap[min]) < 0) 
@@ -77,7 +87,10 @@ void spp_heap_visit(struct spp_heap *h,void (*visit)(void *))
 bool spp_heap_add(struct spp_heap *h,void *v)
 {
 	void **heap;
-	if (h->pos == h->size && h->size < SPP_HEAP_MAX) {
+	if (h->pos >= h->size) {
+		 if (h->size >= SPP_HEAP_MAX)
+		 	return false;
+		 
 		h->size <<= 1;
 		heap = krealloc(h->heap,sizeof(void *) * h->size,GFP_ATOMIC);
 		if (heap == NULL) {
@@ -91,7 +104,7 @@ bool spp_heap_add(struct spp_heap *h,void *v)
 	heap = h->heap;	
 	
 	unsigned int pos = h->pos;
-	while (pos  > 1) {
+	while (pos > 1) {
 		unsigned int parent = pos >> 1;
 		int ret  = h->cmp(heap[parent], v);
 		if (ret < 0)
@@ -120,7 +133,7 @@ struct spp_hash_table {
 	void *(*entry_get)(struct hlist_node *);
 	struct hlist_node *(*hnode_get)(void *);
 
-	u32 size;
+	u32 size,entries;
 	struct hlist_head head[0];
 };
 
@@ -149,6 +162,7 @@ struct spp_hash_table *spp_hash_table_new(
 	ht->entry_get = entry_get;
 	ht->hnode_get = hnode_get;
 	ht->size = size;
+	ht->entries = 0;
 	
 	u32 i;
 	for (i = 0 ; i < size ; i++) 
@@ -162,6 +176,7 @@ void spp_hash_table_free(struct spp_hash_table *ht)
 {
 	kfree(ht);
 }
+
 void spp_hash_table_destroy(struct spp_hash_table *ht)
 {
 	u32 i;
@@ -181,6 +196,9 @@ int spp_hash_add(struct spp_hash_table *ht,u32 hash,void *v,void **ptr)
 {
 	struct hlist_node *pos;
 	void *node;
+//	if (ht->entries >= SPP_HASH_MAX)
+//		return -ENOMEM;
+	
 	hash %= ht->size;
 	hlist_for_each(pos,&ht->head[hash]) {
 		node = ht->entry_get(pos);
@@ -191,8 +209,11 @@ int spp_hash_add(struct spp_hash_table *ht,u32 hash,void *v,void **ptr)
 	node = ht->new(v);
 	if (node == NULL)
 		return -ENOMEM;
-	 hlist_add_head(ht->hnode_get(node),&ht->head[hash]);
 
+	hlist_add_head(ht->hnode_get(node),&ht->head[hash]);
+
+	ht->entries++;
+	
 	if (ptr != NULL)
 		*ptr = node;
 	return 0;
@@ -209,11 +230,21 @@ void *spp_hash_get(struct spp_hash_table *ht,u32 hash,void *v,bool del)
 			if (del) {
 				hlist_del(pos);
 				ht->destroy(pos);
+				res = NULL;
 			}
 			break;
 		}
 	}
-
 	return res;
 }
 
+void spp_hash_visit(struct spp_hash_table *ht,void (*visit)(void *))
+{
+	u32 i;
+	for (i = 0 ; i < ht->size ; i++) {
+		struct hlist_node *pos,*_next;
+		hlist_for_each_safe(pos,_next,&ht->head[i]) {
+			visit(ht->entry_get(pos));
+		}
+	}
+}

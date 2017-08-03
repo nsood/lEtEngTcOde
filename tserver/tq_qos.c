@@ -53,7 +53,7 @@ int acquire_ip_qos_list(char *ip_qos_list,size_t size)
 
 /***********************************************************
 *name		:	start_qos
-*function	:	task of starting qos function,system call  nvram_set
+*function	:	task of starting qos function,system call  set_nvram
 *argument	:	void
 *return		:	void
 *notice		:	cause write nvram flash waste a little time,
@@ -65,23 +65,30 @@ void start_qos()
 	char ip_qos_list[SIZE_BASE]={'\0'};
 	struct tq_ser_ctl *ctl = &ser_ctl;
 
-	nvram_set("QoSEnable", "2");
 	int ips_len = acquire_ip_qos_list(ip_qos_list,sizeof(ip_qos_list));
 	if(0 == ips_len || ips_len >= sizeof(ip_qos_list)) {
 		debug_info("get ip list fail!");
 		return;
 	}
 	strncpy(ctl->tq_qos.ip_list,ip_qos_list,ips_len);
-	sprintf(buf,"\"%s\"",ip_qos_list);
+	sprintf(buf,"%s",ip_qos_list);
 
 	debug_info("\tip_qos_list : %s ",buf);
 	debug_info("\ttimeout : %d",ctl->tq_qos.qos_tm_max);
 	debug_info("\tcli_cnt : %d",ctl->tq_qos.cli_cnt);
-
-	nvram_set("IpQosList", buf);
+#if 0
+	set_nvram("QoSEnable", "2");
+	sleep(2);
+	set_nvram("IpQosList", buf);
 	sleep(4);
 	system("jcc_ctrl updatenvram 0");
 	system("jcc_ctrl restartqos &");
+#else
+	char sys_buf[SIZE_BASE]={'\0'};
+	sprintf(sys_buf,"/tmp/qos.sh \"%s\" \"%s\" &","2",buf);
+	debug_info("%s",sys_buf);
+	system(sys_buf);
+#endif
 }
 
 /***********************************************************
@@ -165,6 +172,10 @@ void qos_tm_handler()
 	char buf[SIZE_BASE]={'\0'};
 	char ip_qos_list[SIZE_BASE]={'\0'};
 
+	//tmp show some unused info
+	acquire_memory();
+	acquire_cpu();
+
 	//update currently clinets info
 	update_qos_info();
 	debug_info("timeout : %d",ctl->tq_qos.qos_tm_max);
@@ -175,34 +186,55 @@ void qos_tm_handler()
 		debug_info("get ip list fail!");
 		return;
 	}
-	if (0 != strncmp(ctl->tq_qos.ip_list,ip_qos_list,ips_len)) {
-		debug_info("refresh ip_qos_list");
-		snprintf(buf,sizeof(buf),"\"%s\"",ip_qos_list);
-		//debug_info("qos timeout ip_qos_list : %s ",buf);
-		nvram_set("IpQosList", buf);
-		sleep(4);
-		system("jcc_ctrl updatenvram 0");
-		system("jcc_ctrl restartqos &");
-	}
-
+//reset qos config bug, must judge qos-enable first
 	if(ctl->tq_qos.cli_cnt<=0 || ctl->tq_qos.qos_tm_max<=0 || ctl->tq_qos.enable==0) {
 		ctl->tq_qos.qos_tm_max = 0;
 		ctl->tq_qos.enable = 0;
 		ctl->tq_qos.cli_cnt = 0;
-
+#if 0
 		if (cfg->qos.en == 1) {
-			nvram_set("QoSEnable", "2");
+			set_nvram("QoSEnable", "2");
 		} else {
-			nvram_set("QoSEnable", "0");
+			set_nvram("QoSEnable", "0");
 		}
 
 		sprintf(buf,"\"%s\"",cfg->qos.ip_list);
-		//debug_info("qos timeout iplist : %s ",buf);
-		nvram_set("IpQosList", buf);
+		set_nvram("IpQosList", buf);
 		sleep(4);
 		system("jcc_ctrl updatenvram 0");
 		system("jcc_ctrl restartqos &");
+#else
+		char buf_en[10]={'\0'};
+		char sys_buf[SIZE_BASE]={'\0'};
+		if (cfg->qos.en == 1) {
+			strcpy(buf_en,"2");
+		} else {
+			strcpy(buf_en,"0");
+		}
+		sprintf(buf,"%s",cfg->qos.ip_list);
+		sprintf(sys_buf,"/tmp/qos.sh \"%s\" \"%s\" &",buf_en,buf);
+		debug_info("%s",sys_buf);
+		system(sys_buf);
+#endif
 		return;
+	}
+
+
+	if (0 != strncmp(ctl->tq_qos.ip_list,ip_qos_list,ips_len)) {
+		debug_info("refresh ip_qos_list");
+		snprintf(buf,sizeof(buf),"%s",ip_qos_list);
+		//debug_info("qos timeout ip_qos_list : %s ",buf);
+#if 0
+		set_nvram("IpQosList", buf);
+		sleep(4);
+		system("jcc_ctrl updatenvram 0");
+		system("jcc_ctrl restartqos &");
+#else
+		char sys_buf[SIZE_BASE]={'\0'};
+		sprintf(sys_buf,"/tmp/qos.sh \"%s\" \"%s\" &","2",buf);
+		debug_info("%s",sys_buf);
+		system(sys_buf);
+#endif
 	}
 
 	if (ctl->tq_qos.enable>0 && ctl->tq_qos.cli_cnt>0){

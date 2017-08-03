@@ -1,3 +1,4 @@
+#include <signal.h>
 #include "tserver.h"
 #include "tq_aes.h"
 #include "tq_qos.h"
@@ -96,6 +97,7 @@ static void server_init(void)
 	struct tq_ser_ctl *ctl = &ser_ctl;
 	struct tq_cfg_s *cfg = &cfg_ctl;
 
+	int sig = getpid();
 	debug_info("server init...");
 	//init cfg
 	memset(cfg,0,sizeof(struct tq_cfg_s));
@@ -115,6 +117,7 @@ static void server_init(void)
     if(fds[0] == -1)
     {
         perror("socket");
+		kill(sig,SIGINT);
         exit(1);
     }
     set_nonblocking(fds[0]);
@@ -124,6 +127,7 @@ static void server_init(void)
     srvaddr_v.sin_addr.s_addr = htonl(INADDR_ANY);
 	if ( bind(fds[0], (struct sockaddr *)&srvaddr_v, sizeof(srvaddr_v)) < 0 ) {
 		perror("bind");
+		kill(sig,SIGINT);
 		exit(1);
 	}
     //create udp server fd for getting CMD
@@ -131,6 +135,7 @@ static void server_init(void)
     if(fds[1] == -1)
     {
         perror("socket");
+		kill(sig,SIGINT);
         exit(1);
     }
     set_nonblocking(fds[1]);
@@ -140,6 +145,7 @@ static void server_init(void)
     srvaddr_o.sin_addr.s_addr = htonl(INADDR_ANY);
 	if ( bind(fds[1], (struct sockaddr *)&srvaddr_o, sizeof(srvaddr_o)) < 0 ) {
 		perror("bind");
+		kill(sig,SIGINT);
 		exit(1);
 	}
 
@@ -148,6 +154,7 @@ static void server_init(void)
     if(fds[2] == -1)
     {
 		perror("timerfd_create");
+		kill(sig,SIGINT);
 		exit(1);
     }
     int i;
@@ -156,6 +163,7 @@ static void server_init(void)
     if(epfd == -1)
     {
         perror("epoll_create");
+		kill(sig,SIGINT);
         exit(1);
     }
     int ret;
@@ -167,6 +175,7 @@ static void server_init(void)
         if(fi == NULL)
         {
             perror("malloc");
+			kill(sig,SIGINT);
             exit(1);
         }
 		fdis[i] = fi;
@@ -185,6 +194,7 @@ static void server_init(void)
         if(ret == -1)
         {
             perror("epoll_ctl");
+			kill(sig,SIGINT);
             exit(1);
         }
         debug_info("fds[%d]:%d", i, fds[i]);
@@ -199,6 +209,7 @@ static void server_init(void)
     if(ret == -1)
     {
         perror("timerfd_settime");
+		kill(sig,SIGINT);
         exit(1);
     }
 #endif

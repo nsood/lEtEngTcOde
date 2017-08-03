@@ -9,6 +9,7 @@
 
 #if 0
 static const char *sips[] = {
+	"39.108.167.249",
 	"61.151.186.121",
 	"61.151.186.122",
 	"61.151.186.123",
@@ -37,7 +38,6 @@ static const char *cips[] = {
 	"192.168.11.9",
 	"192.168.11.3",
 	"192.168.11.2",
-	"192.168.11.139",
 };
 #endif
 
@@ -47,6 +47,8 @@ static int __init spp_init(void)
 	int err = spp_config_init();
 	if (err) 
 		goto conf_err;
+	
+	printk("spp config init done\n");
 #if 0
 	u32 i;
 	for (i = 0 ; i < sizeof(sips)/sizeof(sips[0]) ; i++) 
@@ -58,20 +60,29 @@ static int __init spp_init(void)
     err = spp_comm_init();
 	if (err)
 		goto comm_err;
+	printk("spp comm init done\n");
 
+#ifdef _USE_SPP_TIMER
 	err = spp_timer_init();
 	if (err) 
 		goto timer_err;
+	printk("spp timer init done\n");
+#endif
 
 	err = spp_network_init();
 	if (err)
 		goto network_err;
 
+	printk("spp network init done %s%s\n",__DATE__,__TIME__);
 	return err;
 	
 network_err:
+	
+#ifdef _USE_SPP_TIMER	
 	spp_timer_fini();
 timer_err:
+#endif
+
 	spp_comm_fini();
 comm_err:
 	spp_config_fini();
@@ -82,10 +93,16 @@ conf_err:
 static void __exit spp_fini(void)
 {
 	spp_network_stop();
+
+#ifdef _USE_SPP_TIMER	
 	spp_timer_fini();
+#endif
+
 	spp_network_fini();
     spp_comm_fini();
 	spp_config_fini();
+	
+	printk("spp fini done\n");
 }
 
 module_init(spp_init);

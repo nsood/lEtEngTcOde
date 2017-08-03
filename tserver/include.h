@@ -29,8 +29,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "autoconf.h"
+#include "linux/autoconf.h"
+#include "config/autoconf.h"
 #include "oid.h"
+/*
+#include "common.h"
+#include "libnvram/nvram.h"
+*/
 
 #include "rb_tree.h"
 #include "nl.h"

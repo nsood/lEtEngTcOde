@@ -31,13 +31,13 @@ char *sys_popen(const char *cmd, char *result, int m_len)
 }
 
 /***********************************************************
-*name		:	nvram_get
+*name		:	get_nvram
 *function	:	acquire key-value store in nvram 2860
 *argument	:	const char *name	:	key string
 *return		:	system call return point
 *notice		:	
 ***********************************************************/
-char *nvram_get(const char *name, char *nvram_buf)
+char *get_nvram(const char *name, char *nvram_buf)
 {
 	char buf[SIZE_NVRAM];
 	sprintf(buf,"nvram_get 2860 %s",name);
@@ -46,14 +46,14 @@ char *nvram_get(const char *name, char *nvram_buf)
 }
 
 /***********************************************************
-*name		:	nvram_set
+*name		:	set_nvram
 *function	:	set key-value
 *argument	:	const char *name	:	key string
 				const char *args		:	value string
 *return		:	void
 *notice		:	
 ***********************************************************/
-void nvram_set(const char *name, const char *args)
+void set_nvram(const char *name, const char *args)
 {
 	char buf[SIZE_NVRAM];
 	memset(buf,0,SIZE_NVRAM);
@@ -126,14 +126,13 @@ int acquire_errpack()
 
 int acquire_terminals()
 {
-	return 0;
-/*
+//	return 0;
+	int count=0;
 	char buf[10]={'\0'};
-	sys_popen("wwdemo | sed -n '/RSSI/p' | sed -n '$='", buf, sizeof(buf));
-	debug_info("terminals:%d", atoi(buf));
-	//return atoi(buf);
-	return 0;
-*/
+	sys_popen("cat /proc/net/arp | sed -n '/[0-9]\\{1,3\\}.[0-9]\\{1,3\\}.[0-9]\\{1,3\\}.[0-9]\\{1,3\\}/p' | sed -n '$='", buf, sizeof(buf));
+	count = atoi(buf);
+	debug_info("terminals:%d", count);
+	return count;
 }
 int acquire_channelrate()
 {
@@ -161,7 +160,7 @@ int acquire_memory()
 	} else {
 		return 0;
 	}
-	//debug_info("MEM:%d%%",(100-100*free/total));
+	debug_info("MEM:%d%%",(100-100*free/total));
 	return (100-100*free/total);
 }
 
@@ -170,10 +169,14 @@ int acquire_cpu()
 	int cpu;
 	char avg[SIZE_CPU_MEM];
 	char cpu_mem_buf[SIZE_CPU_MEM]={'\0'};
+#ifdef OPENWRT
+	strcpy(avg,sys_popen("top -n 1 | sed -n '/^CPU/p' | sed -n 's/CPU: *//p' | sed -n 's/% usr.*//p'",cpu_mem_buf,sizeof(cpu_mem_buf)));
+#else
 	strcpy(avg,sys_popen("cpu | sed -n '/[0-9]/p'",cpu_mem_buf,sizeof(cpu_mem_buf)));
+#endif
 	if (NULL!=cpu_mem_buf) {
 		cpu = atoi(strtok(avg," "));
-		//debug_info("CPU:%d %%",cpu);
+		debug_info("\tCPU:%d %%",cpu);
 		return cpu;
 	} else {
 		return 0;

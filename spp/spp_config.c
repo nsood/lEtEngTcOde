@@ -16,11 +16,7 @@ struct ip_hash_entry {
 };
 struct spp_config_ctx{
 	struct kmem_cache *cache;
-	struct net_device *lan
-#if 0
-,*wan
-#endif
-;
+	struct net_device *lan;
 	u16 dup[4];
 	u16 trim;
 	bool wmm;
@@ -119,26 +115,14 @@ bool spp_cip_match(u32 ip,bool del)
 }
 
 static char *lan = "br-lan";
-#if 0
-static char *wan = "eth0";
-#endif
-
 module_param(lan,charp,0644);
-#if 0
-module_param(wan,charp,0644);
-#endif
+
 int  spp_config_init(void)
 {
 	struct spp_config_ctx *sc = &cctx;
 	sc->lan =  __dev_get_by_name(&init_net,lan);
 	if (sc->lan == NULL)
 		goto fail;
-#if 0
-	sc->wan =  __dev_get_by_name(&init_net,wan);
-	if (sc->wan == NULL)
-		goto fail;
-	printk("lan dev = %p wan dev = %p HZ = %u\n",sc->lan,sc->wan,HZ);
-#endif
 
 	sc->wmm = true;
 	sc->dup[0] = 20;

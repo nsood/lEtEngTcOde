@@ -12,6 +12,8 @@ bool spp_heap_add(struct spp_heap *h,void *v);
 void spp_heap_destroy(struct spp_heap *h);
 bool spp_heap_empty(struct spp_heap *h);
 void spp_heap_visit(struct spp_heap *h,void (*visit)(void *));
+unsigned int spp_heap_size(struct spp_heap *h);
+unsigned int spp_heap_pos(struct spp_heap *h);
 
 struct spp_hash_table;
 void *spp_hash_get(struct spp_hash_table *ht,u32 hash,void *v,bool del);
@@ -25,6 +27,7 @@ struct spp_hash_table *spp_hash_table_new(
 						void *(*entry_get)(struct hlist_node *),
 						struct hlist_node *(*hnode_get)(void *));
 void spp_hash_table_free(struct spp_hash_table *ht);
+void spp_hash_visit(struct spp_hash_table *ht,void (*visit)(void *));
 
 
 #endif

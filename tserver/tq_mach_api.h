@@ -2,8 +2,8 @@
 #define TQ_MACH_API_H_
 
 char *sys_popen(const char *cmd, char *result, int m_len);
-char *nvram_get(const char *name, char *nvram_buf);
-void nvram_set(const char *name, const char *args);
+char *get_nvram(const char *name, char *nvram_buf);
+void set_nvram(const char *name, const char *args);
 char *tq_acquire_ver(char *v);
 char *tq_acquire_mac(char *ip, char *mac_buf);
 int acquire_cpu();

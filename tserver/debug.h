@@ -28,7 +28,7 @@
 	fprintf(fp, "[%s] %s", ti, msg); \
 	fflush(fp); \
 	fclose(fp); \
-	printf("%s",msg); \
+	printf("[%s] %s", ti, msg); \
 }while(0)
 
 //#define DEBUG_INFO
