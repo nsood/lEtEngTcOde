@@ -73,7 +73,6 @@ static int __init spp_init(void)
 	if (err)
 		goto network_err;
 
-	printk("spp network init done %s%s\n",__DATE__,__TIME__);
 	return err;
 	
 network_err:

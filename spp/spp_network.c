@@ -237,7 +237,12 @@ static void spp_dump_work_cb(struct work_struct *ws)
 			break;
 		list_del(&pos->gc);
 		ctx->ndumper--;
+#if LINUX_VERSION_CODE == KERNEL_VERSION(2,6,36)
 		ip_local_out(pos->skb);
+#elif  LINUX_VERSION_CODE == KERNEL_VERSION(4,4,14)
+		struct sk_buff *skb = pos->skb;
+		ip_local_out(dev_net(skb->dev),skb->sk,skb);
+#endif
 		kmem_cache_free(ctx->dup_cache,pos);
 	}
 	spin_unlock(&ctx->dump_lock);
@@ -253,16 +258,19 @@ static void spp_dump_timer_cb(unsigned long v)
 
 #endif
 
+#if LINUX_VERSION_CODE == KERNEL_VERSION(2,6,36)
 static unsigned int nf_network_up(
-#if 0
-							const struct nf_hook_ops *ops,
-#else
-							unsigned int hooknum,
+								unsigned int hooknum,
+								struct sk_buff *skb,
+								const struct net_device *in,
+								const struct net_device *out,
+								int (*okfn)(struct sk_buff *))
+#elif  LINUX_VERSION_CODE == KERNEL_VERSION(4,4,14)
+static unsigned int nf_network_up(void *priv,
+								struct sk_buff *skb,
+								const struct nf_hook_state *state)
 #endif
-                            struct sk_buff *skb,
-                            const struct net_device *in,
-                            const struct net_device *out,
-                            int (*okfn)(struct sk_buff *))
+
 {	
 	struct iphdr *iph;
 	
@@ -301,17 +309,18 @@ static unsigned int nf_network_up(
 	return NF_ACCEPT;
 }
 
-
+#if LINUX_VERSION_CODE == KERNEL_VERSION(2,6,36)
 static unsigned int nf_network_down(
-#if 0
-									const struct nf_hook_ops *ops,
-#else
-									unsigned int hooknum,
+								unsigned int hooknum,
+								struct sk_buff *skb,
+								const struct net_device *in,
+								const struct net_device *out,
+								int (*okfn)(struct sk_buff *))
+#elif  LINUX_VERSION_CODE == KERNEL_VERSION(4,4,14)
+static unsigned int nf_network_down(void *priv,
+									struct sk_buff *skb,
+									const struct nf_hook_state *state)
 #endif
-	                                struct sk_buff *skb,
-	                                const struct net_device *in,
-	                                const struct net_device *out,
-	                                int (*okfn)(struct sk_buff *))
 {
 	struct iphdr *iph;	
 	u16 dup = spp_dup_get(0);
@@ -363,14 +372,18 @@ static unsigned int nf_network_down(
 
 static struct nf_hook_ops ops[2] = {
 		[0] = {
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,14)
 	        .owner = THIS_MODULE,
+	#endif
 	        .hook = nf_network_up,
 	        .pf = NFPROTO_IPV4,
 	        .hooknum = NF_INET_PRE_ROUTING,
 	        .priority = -1,
         },
 		[1] = { 
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,14)
 	        .owner = THIS_MODULE,
+	#endif
 	        .hook = nf_network_down,
 	        .pf = NFPROTO_IPV4,
 	        .hooknum = NF_INET_POST_ROUTING,

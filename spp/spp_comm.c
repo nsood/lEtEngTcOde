@@ -41,7 +41,7 @@ void spp_nl_send_msg(u8 *data, u16 data_len, int pid)
 
     nlh->nlmsg_pid = 0;
     nlh->nlmsg_flags = 0;
-#if 0
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,36)
     NETLINK_CB(skb).portid = pid;
 #else
     NETLINK_CB(skb).pid = pid;
@@ -159,7 +159,7 @@ void spp_nl_recv_msg(struct sk_buff *__skb)
 
 int spp_comm_init(void)
 { 
-#if 0
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,36)
     struct netlink_kernel_cfg cfg = {
         .input = spp_nl_recv_msg
     };

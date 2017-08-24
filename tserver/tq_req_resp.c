@@ -353,11 +353,12 @@ void tq_req_start_qos(struct request_s* req)
 	brandqos = tq_json_get_int(request_js,"brandqos");// 1:open 0:close
 	brandlimit = tq_json_get_int(request_js,"brandlimit");//Mbps
 
-	debug_info("brandqos:%d brandlimit:%d",brandqos,brandlimit);
-	//if (brandqos == 0) goto NON_QOS;
-
+	if (brandqos == 0) goto NON_QOS;
+	if (brandqos == INT_INV) brandqos = 1;
+	if (brandlimit == INT_INV) brandlimit = 1;
 	if (validtime == INT_INV) validtime = DEF_EXPIRE;
 	ctl->tq_qos.brandlimit = brandlimit;
+	debug_info("brandqos:%d brandlimit:%d",brandqos,brandlimit);
 
 	record_new_client(inet_ntoa(req->cli_addr.sin_addr),(validtime+TIME_QOS-1)/TIME_QOS);
 
@@ -377,7 +378,7 @@ void tq_req_start_qos(struct request_s* req)
 		ctl->tq_qos.tm = tq_timer_new(NULL, qos_tm_handler, TIME_QOS, "QOS loop Timer");
 	}
 
-//NON_QOS:
+NON_QOS:
 	err_no = 0;
 	json_object_object_add(response_js, "errno", json_object_new_int(err_no));
 	if (0==err_no)
